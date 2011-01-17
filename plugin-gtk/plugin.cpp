@@ -44,10 +44,12 @@
 #include <ctype.h>
 #define GTK_ENABLE_BROKEN
 #include <gtk/gtk.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "plugin.h"
 #include "npupp.h"
+#include "des.h"
 
 NPIdentifier CPlugin::sCi1_id; /* Function */
 NPIdentifier CPlugin::sTextData_id;
@@ -87,17 +89,50 @@ NPBool CPlugin::init(NPWindow* pNPWindow)
 
 char *CPlugin::dupText()
 {
-    const char tpl[] = "3DES_2_000000000000000000000000000000_XXXXXXXXXXXXXXXX";
-    const gchar *p = gtk_entry_get_text(GTK_ENTRY(m_entry));
-    if (p!=NULL && p[0]!=0){
-	return strdup(p);
-	int l = strlen(p);
-	int total = strlen(tpl);
-	char *renew = strdup(tpl);
-	if (l < total)
-	    memcpy(renew+total-l, p, l);
-	return renew;
+    char * p, * cipher;
+    uint8 input[8], d_output[80];
+    uint8 des_keys[] = {PLACE DES3 KEYS HERE};
+    const char tpl[] = "3DES_2_000000000000000000000000000000_";
+    const gchar * plain = gtk_entry_get_text(GTK_ENTRY(m_entry));
+
+    if (plain != NULL && *plain != 0) {
+	int i, len, cnt;
+    	des3_context ctx;
+	uint8 * output = d_output;
+        des3_set_3keys(&ctx, des_keys);
+	fprintf(stderr, "gtk text: %s\n", plain);
+	while (*plain != 0 && output < d_output + sizeof(d_output)) {
+		for (i = 0; i < 8; i++) {
+			input[i] = *plain;
+			if (*plain)
+				plain++;
+		}
+
+		fprintf(stderr, "input %s\n", input);
+		des3_encrypt(&ctx, input, output);
+		for (i = 0; i < 8; i++)
+			fprintf(stderr, "%02X", output[i]);
+		fprintf(stderr, "-%s\n", input);
+		output += 8;
+	}
+
+	cnt = output - d_output;
+	len = cnt * 2 + strlen(tpl) + 1;
+
+	cipher = (char *)malloc(len);
+	if (cipher == NULL)
+		return strdup(tpl);
+	
+	strncpy(cipher, tpl, len);
+	p = cipher + strlen(tpl);
+	for (i = 0; i < cnt; i++) {
+		sprintf(p, "%02X", d_output[i] & 0xff);
+		p += 2;
+	}
+
+	return cipher;
     }
+
     return strdup(tpl);
 }
 

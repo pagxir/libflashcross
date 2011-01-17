@@ -9,7 +9,7 @@ CFLAGS = -DOSTYPE=\"FreeBSD8\" -DOSARCH=FreeBSD  -fPIC  \
 
 CXXFLAGS = `pkg-config --cflags $(PACKAGES)` -g -DXP_UNIX $(CFLAGS)
 PLUGIN_OBJ = np_entry.o npn_gate.o npp_gate.o plugin.o \
-	npp_script.o npp_class.o npp_object.o 
+	npp_script.o npp_class.o npp_object.o des.o
 LDFLAGS = -shared -Wl,-zdefs -Wl,-hlib$(NAME).so -Wl,-Bsymbolic \
 	`pkg-config --libs $(PACKAGES)`
 
