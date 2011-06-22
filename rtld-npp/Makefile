@@ -2,7 +2,9 @@ CC = gcc
 CXX = g++
 PKGNAME = libxul nss
 CFLAGS  = -g -fPIC -D__FREEBSD__ 
-CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)` -I/usr/local/include 
+CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)` \
+	-I /usr/local/include \
+	-I /usr/local/include/firefox
 
 LDLIBS = -Wl,-rpath,/home/pagx/plugins `pkg-config --libs nss`
 LDLIBS += -lstdc++ -lssl -lm -lXt

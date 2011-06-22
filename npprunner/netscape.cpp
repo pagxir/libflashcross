@@ -74,7 +74,7 @@ static const char *__var(const NPVariant *variant, char *buffer)
 			break;
 		case NPVariantType_String:
 			count = sprintf(buffer, "string_var(%s)",
-					variant->value.stringValue.utf8characters);
+					variant->value.stringValue.UTF8Characters);
 			break;
 		case NPVariantType_Object:
 			sprintf(buffer, "object_var(%p=%p)", variant, variant->value.objectValue);
@@ -218,8 +218,8 @@ void NPN_ReleaseVariantValue(NPVariant *variant)
 	if (variant != NULL)
 		switch (variant->type){
 			case NPVariantType_String:
-				free((void*)variant->value.stringValue.utf8characters);
-				variant->value.stringValue.utf8length = 0;
+				free((void*)variant->value.stringValue.UTF8Characters);
+				variant->value.stringValue.UTF8Length = 0;
 				variant->type = NPVariantType_Void;
 				break;
 			case NPVariantType_Object:
@@ -239,20 +239,20 @@ void NPN_ReleaseVariantValue(NPVariant *variant)
 static bool __popup_state = true;
 static std::stack<bool> __popup_stack;
 
-bool NPN_PushPopupsEnabledState_fixup(NPP npp, NPBool enabled)
+void NPN_PushPopupsEnabledState(NPP npp, NPBool enabled)
 {
 	bool old = __popup_state;
 	__popup_stack.push(__popup_state);
 	__popup_state = enabled;
-	return old;
+	return ;
 }
 
-bool NPN_PopPopupsEnabledState_fixup(NPP npp)
+void NPN_PopPopupsEnabledState(NPP npp)
 {
 	bool old = __popup_state;
 	__popup_state = __popup_stack.top();
 	__popup_stack.pop();
-	return old;
+	return;
 }
 
 struct StreamImpl{
@@ -483,7 +483,7 @@ int urlRedirect(NPStream *stream)
 
 void streamRead(NPStream *stream, int fd)
 {
-	uint16 stype = 1;
+	uint16_t stype = 1;
 	assert(stream);
 	StreamImpl *impl = (StreamImpl*)stream->ndata;
 	assert(fd==impl->sin_file);
@@ -828,7 +828,7 @@ int PostOutBuff(StreamImpl *impl, const char *url, const char *data, size_t len)
 }
 
 NPError NPN_PostURLNotify(NPP instance, const char* url, const char* target,
-		uint32 len, const char* buf, NPBool file, void* notifyData)
+		uint32_t len, const char* buf, NPBool file, void* notifyData)
 {
 	assert(url!=0);
 	assert(file==0);
@@ -980,7 +980,7 @@ jref NPN_GetJavaPeer(NPP npp_)
 bool NPN_Evaluate(NPP npp, NPObject *npobj, NPString *stript, NPVariant *result)
 {
 	printf("__window_object: %p\n", __window_object);
-	printf("NPN_Evaluate %p %p: %s\n", npp, npobj, stript->utf8characters);
+	printf("NPN_Evaluate %p %p: %s\n", npp, npobj, stript->UTF8Characters);
 	return false;
 }
 
@@ -995,7 +995,7 @@ int plugin_Setup(HWND hWnd)
 	assert(err == NPERR_NO_ERROR);
 #endif
 
-#define F(T,f) __netscapefunc.f = (T##UPP)f##T;
+#define F(T,f) __netscapefunc.f = (T##ProcPtr)f##T;
 	F(NPN_GetURL,geturl);
 	F(NPN_PostURL,posturl);
 	F(NPN_RequestRead,requestread);
@@ -1042,7 +1042,7 @@ int plugin_Setup(HWND hWnd)
 
 	__netscapefunc.size = sizeof(__netscapefunc);
 	__netscapefunc.version = 0x13;
-#define XF(f, n) __netscapefunc.n = f;
+#define XF(f, n) __netscapefunc.n = (f##ProcPtr)f;
 	XF(NPN_Invoke,invoke);
 	XF(NPN_UserAgent,uagent);
 	XF(NPN_GetValue,getvalue);
@@ -1058,8 +1058,8 @@ int plugin_Setup(HWND hWnd)
 	XF(NPN_GetProperty,getproperty);
 	XF(NPN_GetURLNotify,geturlnotify);
 	XF(NPN_ReleaseVariantValue,releasevariantvalue);
-	XF(NPN_PushPopupsEnabledState_fixup,pushpopupsenabledstate);
-	XF(NPN_PopPopupsEnabledState_fixup,poppopupsenabledstate);
+	XF(NPN_PushPopupsEnabledState,pushpopupsenabledstate);
+	XF(NPN_PopPopupsEnabledState,poppopupsenabledstate);
 #undef XF
 
 	err = NP_Initialize(&__netscapefunc, &__pluginfunc);
@@ -1073,7 +1073,13 @@ static int parse_argument(const char *url, char ***argn, char ***argv, char **wu
 	static char *_argv[100], *_argn[100];
 	const char *ctxp=url, *xp, *vp, *np;
 
-	for (count=0; count<100; count++){
+	static char name[] = "allowFullScreen";
+	static char value[] = "true";
+
+	_argn[count] = name;
+	_argv[count++] = value;
+
+	for (; count<100; count++){
 		xp = strchr(ctxp, '=');
 		if (xp==NULL || xp==ctxp)
 			break;
@@ -1109,7 +1115,7 @@ int plugin_New(HWND hPlugin, const char *url)
 	NPRect rect;
 	char  *wurl = NULL;
 	char  **argn, **argv;
-	uint16 stype = NP_NORMAL;
+	uint16_t stype = NP_NORMAL;
 	int count = parse_argument(url, &argn, &argv, &wurl);
 	memset(&__plugin, 0, sizeof(__plugin));
 	__window_object = NPN_CreateObject(NULL, getWindowClass());
@@ -1142,7 +1148,7 @@ int plugin_New(HWND hPlugin, const char *url)
 		NPN_GetURLNotify(&__plugin, wurl, NULL, NULL);
 
 #if 0
-	uint16 stype0 = 1;
+	uint16_t stype0 = 1;
 	size_t off = 0;
 	char buf[163840];
 	NPStream stream;
@@ -1187,7 +1193,7 @@ int plugin_Test(HWND hWnd)
 		NPVariant result;
 		if (NPN_GetProperty(&__plugin, obj, __TextData_id, &result)){
 			if (NPVARIANT_IS_STRING(result)){
-				printf("UTF-8: %s\n", result.value.stringValue.utf8characters);
+				printf("UTF-8: %s\n", result.value.stringValue.UTF8Characters);
 				//SetWindowText(hWnd, result.value.stringValue.utf8characters);
 			}
 			NPN_ReleaseVariantValue(&result);

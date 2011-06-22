@@ -60,7 +60,7 @@ public:
   CPlugin(NPP pNPInstance);
   ~CPlugin();
 
-  int16 handleEvent(void* event);
+  int16_t handleEvent(void* event);
   NPBool init(NPWindow* pNPWindow);
   NPBool isInitialized();
   void shut();
