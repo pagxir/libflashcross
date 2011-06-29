@@ -1,12 +1,10 @@
 CC = gcc
 CXX = g++
-PKGNAME = libxul nss
-CFLAGS  = -g -fPIC -D__FREEBSD__ 
-CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)` \
-	-I /usr/local/include \
-	-I /usr/local/include/firefox
+PKGNAME = gtk+-2.0
+CFLAGS  = -g -fPIC -Iinclude 
+CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)`
 
-LDLIBS = -Wl,-rpath,/home/pagx/plugins `pkg-config --libs nss`
+LDLIBS = `pkg-config --libs nss`
 LDLIBS += -lstdc++ -lssl -lm -lXt
 RTLD_NAME = rtld
 PLUGIN_NAME = flashcross
@@ -22,11 +20,11 @@ $(RTLD_NAME): $(OBJ_RTLD)
 	$(CC) $(LDFLAGS) -fPIC -o $(RTLD_NAME) $(OBJ_RTLD) $(LDLIBS)
 
 OBJ_SOLIB = $(OBJ_RTLD) plugin.o
+#LDFLAGS += -Wl,-Bsymbolic
 
 $(SONAME): $(OBJ_SOLIB)
 	$(CC) -shared -Wl,-z,defs -Wl,-h,$(SONAME) $(LDFLAGS) -o $(SONAME) $(OBJ_SOLIB) $(LDLIBS) 
 
-#$(CC) -shared -Wl,-z,defs -Wl,-h,$(SONAME) $(LDFLAGS) -o $(SONAME) $(OBJ_SOLIB) $(LDLIBS) -Wl,-Bsymbolic
-
 clean:
 	rm -f $(OBJ_RTLD) $(OBJ_SOLIB) $(SONAME) $(RTLD_NAME)
+
