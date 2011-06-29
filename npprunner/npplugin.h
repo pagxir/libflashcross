@@ -4,7 +4,6 @@
 class NPPlugin: public NPP_t
 {
 	public:
-		NPPlugin(HWND hWnd);
 		~NPPlugin();
 
 	public:
@@ -19,8 +18,6 @@ class NPPlugin: public NPP_t
 
 	private:
 		int m_flags;
-		HWND m_embed;
-		HWND m_parent;
 		NPWindow m_window;
 		int m_major, m_minor;
 };

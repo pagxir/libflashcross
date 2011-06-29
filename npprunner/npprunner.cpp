@@ -1,8 +1,10 @@
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
+
 #include "npnapi.h"
 
+static NPP_t npp = {0};
 static int playing = 0;
 static const char embed_attrib[] = {
 	"width='100' src='http://player.ku6.com/refer/TKmvCmUadJv6rjyG/v.swf' type='application/x-shockwave-flash'"
@@ -15,24 +17,26 @@ static char embed_attrib_buf[65536];
 void callback( GtkWidget *widget,
 		gpointer   data )
 {
-	int id;
+	int xid;
 	GtkWidget * plugin;
 
 	switch (playing) {
-	case 0:
-		plugin_Setup(NULL);
-		plugin = (GtkWidget *)data;
-		id = GDK_WINDOW_XID(plugin->window);
-		plugin_New((void*)id, embed_attrib_p);
-		playing = 1;
-		break;
-	case 1:
-		plugin_Shutdown();
-		playing = 0;
-		break;
-	default:
-		plugin_Test(NULL);
-		break;
+		case 0:
+			plugin_Setup();
+			plugin = (GtkWidget *)data;
+			xid = GDK_WINDOW_XID(plugin->window);
+			plugin_New(xid, embed_attrib_p, &npp);
+			playing = 1;
+			break;
+
+		case 1:
+			plugin_Shutdown(&npp);
+			playing = 0;
+			break;
+
+		default:
+			plugin_Test(&npp);
+			break;
 	}
 	//
 	//g_print ("Hello again - %s was pressed\n", (gchar *) data);
@@ -86,7 +90,7 @@ int main(int argc, char *argv[])
 	gtk_main ();
 
 	if (playing) {
-		plugin_Shutdown();
+		plugin_Shutdown(&npp);
 		playing = 0;
 	}
 

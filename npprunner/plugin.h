@@ -7,8 +7,8 @@
 typedef int forward_call();
 
 #define FORWARD_CALL(T,f) int f##T(){ \
-    /*MessageBox(0, #f, #T, 0);*/ \
-    return 0; \
+	/*MessageBox(0, #f, #T, 0);*/ \
+	return 0; \
 }
 
 void NPN_ReleaseObject(NPObject *obj);
