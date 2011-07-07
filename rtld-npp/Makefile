@@ -16,6 +16,8 @@ all: $(RTLD_NAME) $(SONAME)
 OBJ_RTLD = rtld.o rtld_start.o rtld_fixup.o \
 	linux.o flashsupport.o
 
+rtld_start.o: ${MACHINE_ARCH}/rtld_start.o
+
 $(RTLD_NAME): $(OBJ_RTLD)
 	$(CC) $(LDFLAGS) -fPIC -o $(RTLD_NAME) $(OBJ_RTLD) $(LDLIBS)
 
