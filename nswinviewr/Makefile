@@ -1,6 +1,6 @@
-#CC = wine /media/system/Applications/MinGW/bin/gcc.exe
-#CXX = wine /media/system/Applications/MinGW/bin/g++.exe
-#WINDRES = wine /media/system/Applications/MinGW/bin/windres.exe
+CC = wine /media/system/Applications/MinGW/bin/gcc.exe
+CXX = wine /media/system/Applications/MinGW/bin/g++.exe
+WINDRES = wine /media/system/Applications/MinGW/bin/windres.exe
 
 CC = gcc
 CXX = g++
