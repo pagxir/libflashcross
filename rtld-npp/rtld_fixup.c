@@ -460,6 +460,13 @@ void * NSAPI(dlopen)(const char * path, int mode)
 		return &dummy_flashsupport;
 	}
 
+#if 0
+	if (strstr(path, "libGL.so") != NULL) {
+		/* remove OpenGL library. */
+		return NULL;
+	}
+#endif
+
 	handle = dlopen(path, mode);
 	if (handle != NULL)
 		return handle;
@@ -589,7 +596,7 @@ struct stat64_gnu {
 };
 
 static inline void st64copy(struct stat64_gnu * st_gnu,
-	const struct stat * st_bsd)
+		const struct stat * st_bsd)
 {
 #define XX(field) \
 	st_gnu->field = st_bsd->field;
@@ -827,3 +834,91 @@ size_t NSAPI(ftello64)(FILE * stream)
 	return ftello(stream);
 }
 
+struct locale_data
+{
+	const char *name;
+	const char *filedata;         /* Region mapping the file data.  */
+	off_t filesize;               /* Size of the file (and the region).  */
+	enum                          /* Flavor of storage used for those.  */
+	{
+		ld_malloced,                /* Both are malloc'd.  */
+		ld_mapped,                  /* name is malloc'd, filedata mmap'd */
+		ld_archive                  /* Both point into mmap'd archive regions.  */
+	} alloc;
+
+	/* This provides a slot for category-specific code to cache data computed
+	   about this locale.  That code can set a cleanup function to deallocate
+	   the data.  */
+	struct
+	{
+		//void (*cleanup) (struct locale_data *) internal_function;
+		union
+		{
+			void *data;
+			struct lc_time_data *time;
+			const struct gconv_fcts *ctype;
+		};
+	} private;
+
+	unsigned int usage_count;     /* Counter for users.  */
+
+	int use_translit;             /* Nonzero if the mb*towv*() and wc*tomb()
+									 functions should use transliteration.  */
+
+	unsigned int nstrings;        /* Number of strings below.  */
+	union locale_data_value
+	{
+		const uint32_t *wstr;
+		const char *string;
+		unsigned int word;          /* Note endian issues vs 64-bit pointers.  */
+	} values;
+} __dummy_data = {"C", "HELLO WORLD"};
+
+struct __locale_struct
+{
+	/* Note: LC_ALL is not a valid index into this array.  */
+	struct __locale_data *__locales[13]; /* 13 = __LC_LAST. */
+
+	/* To increase the speed of this solution we add some special members.  */
+	const unsigned short int *__ctype_b;
+	const int *__ctype_tolower;
+	const int *__ctype_toupper;
+
+	/* Note: LC_ALL is not a valid index into this array.  */
+	const char *__names[13];
+} __dummy_locale = {0};
+
+static char hello_world[256] = {"1232432432532"};
+
+
+void *NSAPI(__newlocale)(int mask, const char *locale, void *base)
+{
+	int i;
+	printf("%x %s base = %p\n", mask, locale, base);
+	__dummy_locale.__ctype_b = hello_world;
+	__dummy_locale.__ctype_tolower = hello_world;
+	__dummy_locale.__ctype_toupper = hello_world;
+	strcpy(__dummy_locale.__names, locale);
+
+	for (i = 0; i < 13; i++)
+		__dummy_locale.__locales[i] = &__dummy_data;
+
+	return &__dummy_locale;
+}
+
+int NSAPI(__uselocale)(void *base)
+{
+	printf("__uselocale is calling: %p %p\n", base, &__dummy_locale);
+	return base;
+}
+
+int NSAPI(__freelocale)(void *base)
+{
+	printf("__freelocale is calling: %p %p\n", base, &__dummy_locale);
+	return 0;
+}
+
+unsigned short NSAPI(__wctype_l)(const char *property, void *locale)
+{
+	return 0;
+}

@@ -93,6 +93,8 @@ static void * fixup_lookup(const char * name, bool in_plt)
 	void * sym;
 	char buf[512];
 	sprintf(buf, "%s_fixup", name);
+	if (strcmp(name, "stdin") == 0)
+		return stdin;
 	if (strcmp(name, "stdout") == 0)
 		return stdout;
 	if (strcmp(name, "stderr") == 0)
