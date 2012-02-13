@@ -30,11 +30,13 @@
 
 #include "rtld.h"
 
-static int dbg_printf(const char * fmt, ...)
-{
-	return 0;
-}
-#define WARN(exp, msg) if (exp); else dbg_printf("%s\n", msg)
+#ifndef ENABLE_DEBUG
+#define dbg_trace(fmt, args...) (void *)0
+#else
+#define dbg_trace(fmt, args...) printf(fmt, ##args)
+#endif
+
+#define WARN(exp, msg) if (exp); else dbg_trace("%s\n", msg)
 
 typedef int dl_callback(
 		struct dl_phdr_info * info, size_t size, void * data);
@@ -132,7 +134,7 @@ static void linux_shmid_ds_copyout(
 
 int NSAPI(dl_iterate_phdr)(dl_callback * callback, void * data)
 {
-	dbg_printf("dl_iterate_phdr: callback %p, data %p\n", callback, data);
+	dbg_trace("dl_iterate_phdr: callback %p, data %p\n", callback, data);
 	return -1;
 }
 
@@ -160,7 +162,7 @@ int NSAPI(shmctl)(int shmid, int cmd, struct linux_shmid_ds * buf)
 	error = shmctl(shmid, cmd, pds);
 
 	if (error != 0) {
-		dbg_printf("shmctl: shmid %d, cmd %d, buf %p, error %s\n",
+		dbg_trace("shmctl: shmid %d, cmd %d, buf %p, error %s\n",
 				shmid, cmd, buf, strerror(errno));
 	} else if (cmd == IPC_STAT) {
 		if (buf != NULL)
@@ -176,7 +178,7 @@ int NSAPI(shmget)(key_t key, size_t size, int flag)
 	error = shmget(key, size, flag);
 	if (error != -1)
 		return error;
-	dbg_printf("shmget: key %p, size %ld, flag %d, error %s\n",
+	dbg_trace("shmget: key %p, size %ld, flag %d, error %s\n",
 			key, size, flag, strerror(errno));
 	return error;
 }
@@ -184,13 +186,13 @@ int NSAPI(shmget)(key_t key, size_t size, int flag)
 void * NSAPI(shmat)(int shmid, const void * addr, int flag)
 {
 	void * retval;
-	dbg_printf("shmat: shmid %d, addr %p, flag %d\n",
+	dbg_trace("shmat: shmid %d, addr %p, flag %d\n",
 			shmid, addr, flag);
 	retval = shmat(shmid, addr, flag);
 	if (retval != MAP_FAILED)
 		return retval;
 
-	dbg_printf("shmat: shmid %d, addr %p, flag %d, error %s\n",
+	dbg_trace("shmat: shmid %d, addr %p, flag %d, error %s\n",
 			shmid, addr, flag, strerror(errno));
 	abort();
 	return retval;
@@ -213,7 +215,7 @@ int NSAPI(connect)(int fd, const struct sockaddr * addr, size_t addrlen)
 	}
 
 	memcpy(&in_gnu, addr, sizeof(in_gnu));
-	dbg_printf("connect family %d, port %d,  addr %x\n",
+	dbg_trace("connect family %d, port %d,  addr %x\n",
 			in_gnu.sin_family, htons(in_gnu.sin_port), (in_gnu.sin_addr));
 
 	compat = (struct sockaddr_in_gnu *)addr;
@@ -336,7 +338,7 @@ int NSAPI(semop)(int semid, struct sembuf * array, size_t nops)
 	if (error == 0)
 		return error;
 
-	dbg_printf("semop: semid %d, array %p, nops %ld, error %s\n",
+	dbg_trace("semop: semid %d, array %p, nops %ld, error %s\n",
 			semid, array, nops, strerror(errno));
 
 	return error;
@@ -349,7 +351,7 @@ int NSAPI(semget)(key_t key, int nsems, int flag)
 	if (error != -1)
 		return error;
 
-	dbg_printf("semget: key %p, nsems %d, flag %d, error %s\n",
+	dbg_trace("semget: key %p, nsems %d, flag %d, error %s\n",
 			key, nsems, flag, strerror(errno));
 	return error;
 }
@@ -390,7 +392,7 @@ int NSAPI(semctl)(int semid, int semnum, int cmd, void * opt)
 		case IPC_SET:
 		case IPC_RMID:
 		default:
-			dbg_printf("[semctl] %d %d %d\n", semid, semnum, cmd);
+			dbg_trace("[semctl] %d %d %d\n", semid, semnum, cmd);
 			exit(0);
 			break;
 	}
@@ -399,7 +401,7 @@ int NSAPI(semctl)(int semid, int semnum, int cmd, void * opt)
 	if (error != -1)
 		return error;
 
-	dbg_printf("semctl: semid %d, semnum %d, smd %d, error %s\n",
+	dbg_trace("semctl: semid %d, semnum %d, smd %d, error %s\n",
 			semid, semnum, cmd, strerror(errno));
 	return error;
 }
@@ -427,7 +429,7 @@ int NSAPI(sysinfo)(struct sysinfo_gnu * info)
 		errno = EINVAL;
 		return -1;
 	}
-	dbg_printf("sysinfo fixup call\n");
+	dbg_trace("sysinfo fixup call\n");
 	info->uptime = 7433;
 	info->loads[0] = 0;
 	info->loads[1] = 1120;
@@ -454,28 +456,24 @@ void * NSAPI(dlopen)(const char * path, int mode)
 	void *handle;
 	char *p, buf[1024];
 
-	dbg_printf("dlopen %s\n", path);
+	dbg_trace("dlopen %s %x\n", path, mode);
 	if (strstr(path, "libflashsupport") != NULL) {
 		dummy_flashsupport++;
 		return &dummy_flashsupport;
 	}
 
-#if 0
-	if (strstr(path, "libGL.so") != NULL) {
-		/* remove OpenGL library. */
-		return NULL;
-	}
-#endif
-
 	handle = dlopen(path, mode);
-	if (handle != NULL)
+	if (handle != NULL) {
+	    dbg_trace("dlopen %s %x %p\n", path, mode, handle);
 		return handle;
+	}
 
 	len = strstr(path, ".so") - path;
 	if (len > 0 && path[len + 3] != 0) {
 		strlcpy(buf, path, len + 4);
-		dbg_printf("fixup dlopen %s fail\n", buf);
-		return dlopen(buf, mode);
+		handle = dlopen(buf, mode);
+	    dbg_trace("dlopen fixup %s %x %p\n", path, mode, handle);
+		return handle;
 	}
 
 	return NULL;
@@ -483,18 +481,30 @@ void * NSAPI(dlopen)(const char * path, int mode)
 
 void * NSAPI(dlsym)(void * handle, const char * name)
 {
-	dbg_printf("dlsym: %s\n", name);
+	void *retp;
+	dbg_trace("dlsym: %s, handle %p\n", name, handle);
 
-	if (handle == &dummy_flashsupport &&
-			strcmp("FPX_Init", name) == 0)
+	if (handle == &dummy_flashsupport) {
+		if (strcmp("FPX_Init", name))
+			return NULL;
 		return (void *)FPX_Init;
+	}
 
-	dbg_printf("fixup dlsym %s fail\n", name);
-	return dlsym(handle, name);
+	retp = dlfunc(handle, name);
+	if (retp != NULL)
+		return retp;
+
+	retp = dlsym(handle, name);
+	if (retp != NULL)
+		return retp;
+
+	dbg_trace("fixup dlsym %s fail\n", name);
+	return NULL;
 }
 
 int NSAPI(dlclose)(void * handle)
 {
+	printf("dlclose: %p\n", handle);
 	if (handle == &dummy_flashsupport) {
 		WARN(dummy_flashsupport > 0, "dummy_flashsupport");
 		dummy_flashsupport--;
@@ -509,7 +519,7 @@ long NSAPI(sysconf)(int name)
 	if (name == 30)
 		return sysconf(_SC_PAGESIZE);
 
-	dbg_printf("sysconf %d\n", name);
+	dbg_trace("sysconf %d\n", name);
 	errno = EINVAL;
 	return -1;
 }
@@ -523,7 +533,7 @@ static const int __map_prot[] = {
 int NSAPI(mprotect)(void * addr, size_t len, int prot)
 {
 	if (prot & 0xfffffff8) {
-		dbg_printf("[mprotect] bad prot: 0x%x\n", prot); 
+		dbg_trace("[mprotect] bad prot: 0x%x\n", prot); 
 		errno = EINVAL;
 		return -1;
 	}
@@ -537,7 +547,7 @@ void * NSAPI(mmap)(void * addr, size_t len, int prot,
 	int flags_bsd, prot_bsd;
 
 	if (prot & 0xfffffff8) {
-		dbg_printf("[mmap] bad prot: 0x%x\n", prot); 
+		dbg_trace("[mmap] bad prot: 0x%x\n", prot); 
 		errno = EINVAL;
 		return MAP_FAILED;
 	}
@@ -552,13 +562,13 @@ void * NSAPI(mmap)(void * addr, size_t len, int prot,
 			flags_bsd = MAP_PRIVATE;
 			break;
 		default:
-			dbg_printf("[mmap] bad flags: 0x%x\n", flags); 
+			dbg_trace("[mmap] bad flags: 0x%x\n", flags); 
 			errno = EINVAL;
 			return MAP_FAILED;
 	}
 
 	if (flags & 0xffffffC0) {
-		dbg_printf("[mmap] bad flags: 0x%x\n", flags); 
+		dbg_trace("[mmap] bad flags: 0x%x\n", flags); 
 		errno = EINVAL;
 		return MAP_FAILED;
 	}

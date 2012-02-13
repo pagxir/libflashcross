@@ -19,10 +19,11 @@
 #define true 1
 #define bool int
 
-static int dbg_printf(const char * fmt, ...)
-{
-	return 0;
-}
+#ifndef ENABLE_DEBUG
+#define dbg_trace(fmt, args...) (void *)0
+#else
+#define dbg_trace(fmt, args...) printf(fmt, ##args)
+#endif
 
 #define PAGESIZE (4096)
 #define PAGEMASK (PAGESIZE - 1)
@@ -99,7 +100,7 @@ static void * fixup_lookup(const char * name, bool in_plt)
 		return stdout;
 	if (strcmp(name, "stderr") == 0)
 		return stderr;
-	sym = dlsym(NULL, buf);
+	sym = in_plt? dlfunc(NULL, buf): dlsym(NULL, buf);
 	return sym;
 }
 
@@ -118,13 +119,13 @@ Elf_Addr _rtld_fixup(Obj_Entry * obj, Elf_Size reloff)
 	def = find_symdef(ELF_R_SYM(rel->r_info), obj, &defobj, true, NULL);
 	if (def == NULL) {
 		def = obj->symtab + ELF_R_SYM(rel->r_info);
-		dbg_printf("symbol missing: %s\n", obj->strtab + def->st_name);
+		dbg_trace("symbol missing: %s\n", obj->strtab + def->st_name);
 		exit(0);
 	}
 
 	const Elf_Sym * symp = obj->symtab + ELF_R_SYM(rel->r_info);
 	const char * name = obj->strtab + symp->st_name;
-	//dbg_printf("_rtld_bind ok: %s!\n", obj->strtab + symp->st_name);
+	//dbg_trace("_rtld_bind ok: %s!\n", obj->strtab + symp->st_name);
 
 	*where = (Elf_Addr)(defobj->relocbase + def->st_value);
 
@@ -151,7 +152,7 @@ elf_dlclose(const Obj_Entry * obj)
 
 	munmap(obj->relocbase, obj->relocsize);
 	free((void *)obj);
-	dbg_printf("elf_free is call!\n");
+	dbg_trace("elf_free is call!\n");
 }
 
 static void *
@@ -170,7 +171,7 @@ dlopen_wrap(const char * name, int mode)
 	if (p != NULL)
 		*(p + 3) = 0;
 
-	dbg_printf("dlopen_fixup %s %d\n", buf, mode);
+	dbg_trace("dlopen_fixup %s %x\n", buf, mode);
 	return dlopen(buf, mode);
 }
 
@@ -185,7 +186,7 @@ find_symdef(unsigned long symnum, const Obj_Entry * refobj,
 	const Obj_Entry * defobj;
 
 	if (symnum >= refobj->nchains) {
-		dbg_printf("chain too large!\n");
+		dbg_trace("chain too large!\n");
 		return NULL;
 	}
 
@@ -193,7 +194,7 @@ find_symdef(unsigned long symnum, const Obj_Entry * refobj,
 	name = refobj->strtab + ref->st_name;
 	defobj = NULL;
 
-	//dbg_printf("find_symdef: %s\n", name);
+	//dbg_trace("find_symdef: %s\n", name);
 	assert(ELF_ST_TYPE(ref->st_info) != STT_SECTION);
 
 	if (ELF_ST_BIND(ref->st_info) == STB_LOCAL) {
@@ -210,11 +211,11 @@ find_symdef(unsigned long symnum, const Obj_Entry * refobj,
 		sym_temp.st_value = (Elf_Addr)symval;
 	} else {
 		def = NULL;
-		/* dbg_printf("symbol %s not found\n", name); */
+		/* dbg_trace("symbol %s not found\n", name); */
 	}
 
 	while (def == NULL) {
-		symval = dlsym(RTLD_DEFAULT, name);
+		symval = in_plt? dlfunc(RTLD_DEFAULT, name): dlsym(RTLD_DEFAULT, name);
 		if (symval == NULL)
 			break;
 		def = &sym_temp;
@@ -224,7 +225,7 @@ find_symdef(unsigned long symnum, const Obj_Entry * refobj,
 	}
 
 	if (def == NULL && ELF_ST_BIND(ref->st_info) == STB_WEAK) {
-		dbg_printf("unref weak object: %s\n", name);
+		dbg_trace("unref weak object: %s\n", name);
 		def = &sym_zero;
 		defobj = &obj_main_0;
 	}
@@ -234,9 +235,10 @@ find_symdef(unsigned long symnum, const Obj_Entry * refobj,
 	if (def != NULL)
 		*defobj_out = defobj;
 	else if (in_plt == false)
-		dbg_printf(fmt, ELF_ST_BIND(ref->st_info), ELF_ST_TYPE(ref->st_info), name);
+		dbg_trace(fmt, ELF_ST_BIND(ref->st_info), ELF_ST_TYPE(ref->st_info), name);
 
-	//dbg_printf("symbol: %d %s\n", in_plt, name);
+	if (def == NULL && in_plt == false)
+		fprintf(stderr, "symbol: %d %s\n", in_plt, name);
 	assert (def != NULL || in_plt == true);
 	return	def;
 }
@@ -256,7 +258,7 @@ digest_dynamic(Obj_Entry * obj)
 				break;
 
 			case DT_SONAME:
-				//dbg_printf("DT_NEEDED: %d\n", dynp->d_un.d_ptr);
+				//dbg_trace("DT_NEEDED: %d\n", dynp->d_un.d_ptr);
 				break;
 
 			case DT_PLTRELSZ:
@@ -312,20 +314,20 @@ digest_dynamic(Obj_Entry * obj)
 			case 0x6fffffff: /*->(21)*/
 			case 0x6ffffffa: /*->(21)*/
 			case 0x6ffffff0: /*->(21)*/
-				dbg_printf("offset: %d\n",
+				dbg_trace("offset: %d\n",
 						((unsigned char *)&(dynp->d_tag)) - obj->relocbase);
-				dbg_printf("value: %x\n", dynp->d_un.d_val);
+				dbg_trace("value: %x\n", dynp->d_un.d_val);
 				break;
 
 			case DT_INIT:
-				dbg_printf("DT_INIT: %p - %d\n", dynp->d_un.d_ptr, getpid());
+				dbg_trace("DT_INIT: %p - %d\n", dynp->d_un.d_ptr, getpid());
 				assert((obj->flags & TF_INIT) != TF_INIT);
 				obj->init = (Elf_Addr)(obj->relocbase + dynp->d_un.d_ptr);
 				obj->flags |= TF_INIT;
 				break;
 
 			case DT_FINI:
-				dbg_printf("DT_FINI: %p\n", dynp->d_un.d_ptr);
+				dbg_trace("DT_FINI: %p\n", dynp->d_un.d_ptr);
 				assert((obj->flags & TF_FINI) != TF_FINI);
 				obj->fini = (Elf_Addr)(obj->relocbase + dynp->d_un.d_ptr);
 				obj->flags |= TF_FINI;
@@ -375,7 +377,7 @@ digest_dynamic(Obj_Entry * obj)
 				break;
 
 			default:
-				dbg_printf("unkown: dt_type %x\n", dynp->d_tag);
+				dbg_trace("unkown: dt_type %x\n", dynp->d_tag);
 				break;
 		}
 	}
@@ -393,11 +395,11 @@ digest_dynamic(Obj_Entry * obj)
 			case DT_NEEDED:
 				strp = (const char *)(obj->strtab + dynp->d_un.d_ptr);
 				obj->dl_handles[dl_count++] = dlopen_wrap(strp, RTLD_LAZY);
-				dbg_printf("\tneeded: %s\n", strp);
+				dbg_trace("\tneeded: %s\n", strp);
 				break;
 
 			case DT_SONAME:
-				dbg_printf("\tsoname: %s\n", obj->strtab + dynp->d_un.d_ptr);
+				dbg_trace("\tsoname: %s\n", obj->strtab + dynp->d_un.d_ptr);
 				break;
 		}
 	}
@@ -407,7 +409,7 @@ digest_dynamic(Obj_Entry * obj)
 		obj->pltrelasize = obj->pltrelsize;
 		obj->pltrel = NULL;
 		obj->pltrelsize = 0;
-		dbg_printf("DT_RELA\n");
+		dbg_trace("DT_RELA\n");
 	}
 
 	return 0;
@@ -442,16 +444,16 @@ elf_dlreloc(Obj_Entry * obj)
 
 			case R_X86_64_RELATIVE:
 				*where = (Elf_Addr)(obj->relocbase + rela->r_addend);
-				//dbg_printf("relative %p\n", where);
+				//dbg_trace("relative %p\n", where);
 				break;
 
 			default:
-				dbg_printf("relslotdrop: type %x, bind %x\n",
+				dbg_trace("relslotdrop: type %x, bind %x\n",
 						ELF_R_TYPE(rela->r_info), ELF_ST_BIND(rela->r_info));
 				break;
 		}
 	}
-	dbg_printf("NONPLTGOT relocate finish!\n");
+	dbg_trace("NONPLTGOT relocate finish!\n");
 
 	const Elf_Rela * pltrela, * pltrelalim;
 
@@ -470,7 +472,7 @@ elf_dlreloc(Obj_Entry * obj)
 	}
 #endif
 
-	dbg_printf("PLTGOT relocate finish!\n");
+	dbg_trace("PLTGOT relocate finish!\n");
 
 	const Elf_Rel * rel, * rellim;
 
@@ -507,7 +509,7 @@ elf_dlreloc(Obj_Entry * obj)
 				break;
 
 			default:
-				dbg_printf("unkown type: %d\n", ELF_R_TYPE(rel->r_info));
+				dbg_trace("unkown type: %d\n", ELF_R_TYPE(rel->r_info));
 				assert(0);
 				break;
 		}
@@ -551,10 +553,10 @@ elf_dlmmap(Obj_Entry * obj, int fd, Elf_Ehdr * hdr)
 	size_t mapsize;
 
 #ifdef VERBOSE
-	dbg_printf("phoff: %ld\n", hdr->e_phoff);
-	dbg_printf("ehsize: %ld\n", hdr->e_ehsize);
-	dbg_printf("phnum: %ld\n", hdr->e_phnum);
-	dbg_printf("phentsize: %ld\n", hdr->e_phentsize);
+	dbg_trace("phoff: %ld\n", hdr->e_phoff);
+	dbg_trace("ehsize: %ld\n", hdr->e_ehsize);
+	dbg_trace("phnum: %ld\n", hdr->e_phnum);
+	dbg_trace("phentsize: %ld\n", hdr->e_phentsize);
 #endif
 
 	phdrinit = (const Elf_Phdr *)((char *)hdr + hdr->e_phoff);
@@ -562,18 +564,18 @@ elf_dlmmap(Obj_Entry * obj, int fd, Elf_Ehdr * hdr)
 
 	for (phdr = phdrinit; phdr < phdrfini; phdr++) {
 #ifdef VERBOSE
-		dbg_printf("\n--------Program Header[%d]---------\n", i++);
-		dbg_printf("type: %x\n", phdr->p_type);
-		dbg_printf("flags: %x\n", phdr->p_flags);
-		dbg_printf("offset: %x\n", phdr->p_offset);
-		dbg_printf("vaddr: %x\n", phdr->p_vaddr);
-		dbg_printf("filesz: %x\n", phdr->p_filesz);
-		dbg_printf("memsz: %x\n", phdr->p_memsz);
-		dbg_printf("align: %x\n", phdr->p_align);
+		dbg_trace("\n--------Program Header[%d]---------\n", i++);
+		dbg_trace("type: %x\n", phdr->p_type);
+		dbg_trace("flags: %x\n", phdr->p_flags);
+		dbg_trace("offset: %x\n", phdr->p_offset);
+		dbg_trace("vaddr: %x\n", phdr->p_vaddr);
+		dbg_trace("filesz: %x\n", phdr->p_filesz);
+		dbg_trace("memsz: %x\n", phdr->p_memsz);
+		dbg_trace("align: %x\n", phdr->p_align);
 #endif
 		switch (phdr->p_type) {
 			case PT_INTERP:
-				dbg_printf("INTERP\n");
+				dbg_trace("INTERP\n");
 				break;
 
 			case PT_LOAD:
@@ -583,7 +585,7 @@ elf_dlmmap(Obj_Entry * obj, int fd, Elf_Ehdr * hdr)
 				break;
 
 			case PT_PHDR:
-				dbg_printf("PHDR\n");
+				dbg_trace("PHDR\n");
 				break;
 
 			case PT_DYNAMIC:
@@ -591,11 +593,11 @@ elf_dlmmap(Obj_Entry * obj, int fd, Elf_Ehdr * hdr)
 				break;
 
 			case PT_TLS:
-				dbg_printf("TLS\n");
+				dbg_trace("TLS\n");
 				break;
 
 			default:
-				dbg_printf("Program Header Type: %x\n", phdr->p_type);
+				dbg_trace("Program Header Type: %x\n", phdr->p_type);
 				break;
 		}
 	}
@@ -607,7 +609,7 @@ elf_dlmmap(Obj_Entry * obj, int fd, Elf_Ehdr * hdr)
 		return -1;
 	}
 
-	dbg_printf("mapsize %ld\n", mapsize);
+	dbg_trace("mapsize %ld, %p\n", mapsize, mapbase);
 
 	for (phdr = phdrinit; phdr < phdrfini; phdr++) {
 		Elf_Off data_off;
@@ -744,7 +746,7 @@ main(int argc, char *argv[])
 		assert(obj != NULL);
 		getMIMEDescription = (const char * (*)())elf_dlsym(obj, "NP_GetMIMEDescription");
 		if (getMIMEDescription != NULL)
-			dbg_printf("aux_add return %s\n", getMIMEDescription());
+			dbg_trace("aux_add return %s\n", getMIMEDescription());
 		elf_dlclose(obj);
 	}
 	return 0;
@@ -811,25 +813,25 @@ elf_dlopen(const char *path)
 	fixup_init();
 
 	if (0 != digest_dynamic(obj)) {
-		dbg_printf("digest_dynamic fail\n");
+		dbg_trace("digest_dynamic fail\n");
 		munmap(obj->relocbase, obj->relocsize);
 		free(obj);
 		return NULL;
 	}
 
 	if (0 != elf_dlreloc(obj)) {
-		dbg_printf("elf_dlreloc fail\n");
+		dbg_trace("elf_dlreloc fail\n");
 		munmap(obj->relocbase, obj->relocsize);
 		free(obj);
 		return NULL;
 	}
-	dbg_printf("elf_dlreloc success\n");
+	dbg_trace("elf_dlreloc success\n");
 
 	if (obj->init != 0) {
 		dl_init = (void (*)(void))obj->init;
 		dl_init();
 	}
 
-	dbg_printf("init call finish!\n");
+	dbg_trace("init call finish!\n");
 	return obj;
 }

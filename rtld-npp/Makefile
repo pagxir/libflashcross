@@ -1,11 +1,9 @@
-CC = gcc
-CXX = g++
 PKGNAME = gtk+-2.0
-CFLAGS  = -g -fPIC -Iinclude 
+CFLAGS  = -g -fPIC -Iinclude -O3
 CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)`
 
 LDLIBS = `pkg-config --libs nss`
-LDLIBS += -lstdc++ -lssl -lm -lXt
+LDLIBS += -lstdc++ -lssl -lm 
 RTLD_NAME = rtld
 PLUGIN_NAME = flashcross
 SONAME = lib$(PLUGIN_NAME).so
