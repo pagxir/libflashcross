@@ -3,7 +3,7 @@ CFLAGS  = -g -fPIC -Iinclude -O3
 CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)`
 
 LDLIBS = `pkg-config --libs nss`
-LDLIBS += -lstdc++ -lssl -lm 
+LDLIBS += -lstdc++ -lssl -lm -lXt
 RTLD_NAME = rtld
 PLUGIN_NAME = flashcross
 SONAME = lib$(PLUGIN_NAME).so
