@@ -12,6 +12,12 @@
 #include "plugin.h"
 #include "npp_script.h"
 
+#ifndef ENAVLE_DEBUG
+#define dbg_trace(fmt, args...) (void *)0
+#else
+#define dbg_trace(fmt, args...) fprintf(stderr, fmt, ##args)
+#endif
+
 static struct plugin __plugin;
 
 char __top_id[] = {"top"};
@@ -78,12 +84,11 @@ const char *VAR_X(const NPVariant *variant)
 bool NPN_Invoke(NPP npp, NPObject* obj, NPIdentifier methodName,
 		const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-	printf("NPN_Invoke: %p %s %ld\n",
-			obj, (char *)methodName, sizeof(NPVariant));
+	dbg_trace("NPN_Invoke: %p %s %ld\n", obj, (char *)methodName, sizeof(NPVariant));
 	assert (obj && obj->_class);
 	assert (obj->_class->invoke);
 	bool retval = obj->_class->invoke(obj, methodName, args, argCount, result);
-	printf("RET: %s\n", VAR(result));
+	dbg_trace("RET: %s\n", VAR(result));
 	return retval;
 }
 
@@ -97,7 +102,7 @@ const char *NPN_UserAgent(NPP instance)
 NPError NPN_SetValue(NPP instance, NPPVariable variable, void *value)
 {
 	NPError error = NPERR_GENERIC_ERROR;
-	printf("NPN_SetValue: %d\n", variable);
+	dbg_trace("NPN_SetValue: %d\n", variable);
 	return error;
 }
 
@@ -127,7 +132,7 @@ NPError NPN_GetValue(NPP instance, NPNVariable variable, void *ret_alue)
 		*(NPNToolkitType *)ret_alue = NPNVGtk2;
 		error = NPERR_NO_ERROR;
 	}else{
-		printf("NPN_GetValue: %p 0x%x %d\n", instance, variable, variable);
+		dbg_trace("NPN_GetValue: %p 0x%x %d\n", instance, variable, variable);
 	}
 	return error;
 }
@@ -146,17 +151,17 @@ NPIdentifier NPN_GetStringIdentifier(const NPUTF8* name)
 	else if (strcmp(___DoFSCommand_id, name)==0)
 		ident = (NPIdentifier)___DoFSCommand_id;
 	else
-		printf("NPN_GetStringIdentifier: %s!\n", name);
+		dbg_trace("NPN_GetStringIdentifier: %s!\n", name);
 	return ident;
 }
 
 bool NPN_GetProperty(NPP npp, NPObject *obj, NPIdentifier propertyName, NPVariant *result)
 {
-	printf("NPN_GetProperty: %p %s %ld\n", obj, (char *)propertyName, sizeof(NPVariant));
+	dbg_trace("NPN_GetProperty: %p %s %ld\n", obj, (char *)propertyName, sizeof(NPVariant));
 	assert(obj && obj->_class);
 	assert(obj->_class->getProperty);
 	bool retval =  obj->_class->getProperty(obj, propertyName, result);
-	printf("RET: %s\n", VAR(result));
+	dbg_trace("RET: %s\n", VAR(result));
 	return retval;
 }
 
@@ -199,7 +204,7 @@ void NPN_PopPopupsEnabledState(NPP npp)
 
 void NPN_ReleaseObject(NPObject *obj)
 {
-	printf("NPN_ReleaseObject: %p\n", obj);
+	dbg_trace("NPN_ReleaseObject: %p\n", obj);
 	assert(obj && obj->_class);
 	obj->referenceCount--;
 	if (obj->referenceCount > 0)
@@ -225,7 +230,7 @@ int plugin_SetWindow(int width, int height)
 	__plugin_window.height = height;
 	__plugin_window.type = NPWindowTypeWindow;
 
-	printf("call Set window\n");
+	dbg_trace("call Set window\n");
 	static NPSetWindowCallbackStruct ws_info = {0};
 	__plugin_window.ws_info = &ws_info;
 	NPError err = __pluginfunc.setwindow(&__plugin, &__plugin_window);
@@ -236,7 +241,7 @@ int plugin_SetWindow(int width, int height)
 
 NPObject *NPN_CreateObject(NPP npp, NPClass *aClass)
 {
-	printf("NPN_CreateObject is called!\n");
+	dbg_trace("NPN_CreateObject is called!\n");
 	NPObject *obj = aClass->allocate(npp, aClass);
 	if (obj != NULL){
 		obj->_class = aClass;
@@ -294,7 +299,7 @@ FORWARD_CALL(NPN_Construct,construct);
 
 NPObject *NPN_RetainObject(NPObject *npobj)
 {
-	printf("NPN_RetainObject: %p\n", npobj);
+	dbg_trace("NPN_RetainObject: %p\n", npobj);
 	npobj->referenceCount++;
 	return npobj;
 }
@@ -311,7 +316,7 @@ void *NPN_GetJavaPeer(NPP npp_)
 
 bool NPN_Evaluate(NPP npp, NPObject *npobj, NPString *stript, NPVariant *result)
 {
-	printf("NPN_Evaluate %p %p: %s\n", npp, npobj, stript->UTF8Characters);
+	dbg_trace("NPN_Evaluate %p %p: %s\n", npp, npobj, stript->UTF8Characters);
 	return false;
 }
 
@@ -398,7 +403,7 @@ int plugin_Setup(void)
 	err = NP_Initialize(&__netscapefunc, PLUG2FUNC(&__plugin));
 	assert(err == NPERR_NO_ERROR);
 
-	printf("NP_Initialize: %d\n", err);
+	dbg_trace("NP_Initialize: %d\n", err);
 	return err;
 }
 
@@ -467,7 +472,7 @@ int plugin_New(int xid, const char *url, NPP npp)
 	count = parse_argument(url, &argn, &argv, &wurl);
 	object->winref = NPN_CreateObject(npp, getWindowClass());
 	error = pluginfuncs->newp(mime_type, npp, 1, count, argn, argv, NULL);
-	printf("plugin_newp %d\n", error);
+	dbg_trace("plugin_newp %d\n", error);
 	__plugin.refcnt++;
 
 	rect.top = 4;
@@ -487,7 +492,7 @@ int plugin_New(int xid, const char *url, NPP npp)
 	error = pluginfuncs->setwindow(npp, OBJ2WIN(object));
 	assert(error == NPERR_NO_ERROR);
 
-	printf("plugin_new %d\n", error);
+	dbg_trace("plugin_new %d\n", error);
 
 	if (wurl != NULL) {
 		NPN_GetURLNotify(npp, wurl, NULL, NULL);
@@ -526,7 +531,7 @@ int plugin_Test(NPP npp)
 	if (err == NPERR_NO_ERROR) {
 		if (NPN_GetProperty(npp, obj, __TextData_id, &result)) {
 			if (NPVARIANT_IS_STRING(result)) {
-				printf("UTF-8: %s\n", result.value.stringValue.UTF8Characters);
+				dbg_trace("UTF-8: %s\n", result.value.stringValue.UTF8Characters);
 				//SetWindowText(hWnd, result.value.stringValue.utf8characters);
 			}
 

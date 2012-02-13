@@ -57,12 +57,12 @@ int main(int argc, char *argv[])
 	GtkWidget *box, *window;
 	GtkWidget *button, *plugin;
 
-	gtk_init(&argc, &argv);
-
 	if (argc > 1) {
 		snprintf(embed_attrib_buf, sizeof(embed_attrib_buf), "src='%s' type='application/x-shockwave-flash''", argv[1]);
 		embed_attrib_p = embed_attrib_buf;
 	}
+
+	gtk_init(&argc, &argv);
 
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_title(GTK_WINDOW(window), "NS Plugin Runner");

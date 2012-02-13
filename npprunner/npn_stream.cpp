@@ -13,6 +13,12 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#ifndef ENAVLE_DEBUG
+#define dbg_trace(fmt, args...) (void *)0
+#else
+#define dbg_trace(fmt, args...) fprintf(stderr, fmt, ##args)
+#endif
+
 #include "npnapi.h"
 #include "npplugin.h"
 #include "npn_stream.h"
@@ -276,7 +282,7 @@ void proto_stream::on_read(void)
 	}
 
 	m_chunk.buf[m_chunk.off] = 0;
-	//printf("Hello World: %d\n", __LINE__);
+	//dbg_trace("Hello World: %d\n", __LINE__);
 	bound = strstr(m_chunk.buf, "\r\n\r\n");
 	if (bound != NULL) {
 		len = parse_content_length(m_chunk.buf);
@@ -607,7 +613,7 @@ int NPNetStream::OnRead(void)
 	struct plugin_object *object;
 
 	if (m_protop == NULL) {
-		fprintf(stderr, "proto stream not support!\n");
+		dbg_trace("proto stream not support!\n");
 		return -1;
 	}
 
@@ -623,7 +629,7 @@ int NPNetStream::OnRead(void)
 		response = m_protop->response();
 		if (parse_redirect_location(response, &location)) {
 			stream = RedirectURLNotify(location, m_url);
-			fprintf(stderr, "redirect: %s\n", location);
+			dbg_trace("redirect: %s\n", location);
 			if (stream != NULL) {
 				SWAP(m_url, location);
 				m_protop->recv_wait(0);
@@ -649,7 +655,7 @@ int NPNetStream::OnRead(void)
 		if (m_protop->cantain_video()) {
 			int const limit = 256 * 1024 / 4;
 			if (m_stream.end < (size_t)limit) {
-				fprintf(stderr, "turn of advise\n");
+				dbg_trace("turn of advise\n");
 				m_stream.end /= 2;
 			} else {
 				m_stream.end = limit;
@@ -658,11 +664,11 @@ int NPNetStream::OnRead(void)
 		}
 
 		parse_mime_type(m_protop->response(), mimetype, sizeof(mimetype));
-		fprintf(stderr, "newstream: %s %d\n", mimetype, m_stream.end);
+		dbg_trace("newstream: %s %d\n", mimetype, m_stream.end);
 		error = pluginfunc->newstream(m_instance,
 				mimetype, &m_stream, SEEKABLE(m_protop->response()), &stype);
 		if (error != NPERR_NO_ERROR) {
-			fprintf(stderr, "newstream error: %d", error);
+			dbg_trace("newstream error: %d", error);
 			return -1;
 		}
 
@@ -673,7 +679,7 @@ int NPNetStream::OnRead(void)
 	while (m_flags & NF_CREATED) {
 		count = pluginfunc->writeready(m_instance, &m_stream);
 		if (count == 0) {
-			fprintf(stderr, "write not ready!\n");
+			dbg_trace("write not ready!\n");
 			return 0;
 		}
 
@@ -716,8 +722,8 @@ void NPNetStream::recv_wrapper(void *upp)
 
 	_locked++;
 	if (streamp->OnRead() == -1) {
-		//fprintf(stderr, "length: %p %d\n", streamp, streamp->m_stream.end);
-		//fprintf(stderr, "offset: %p %d\n", streamp, streamp->m_offset);
+		//dbg_trace("length: %p %d\n", streamp, streamp->m_stream.end);
+		//dbg_trace("offset: %p %d\n", streamp, streamp->m_offset);
 		delete streamp;
 	}
 	_locked--;

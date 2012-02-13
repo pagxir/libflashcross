@@ -2,6 +2,12 @@
 #include "plugin.h"
 #include "npp_object.h"
 
+#ifndef ENAVLE_DEBUG
+#define dbg_trace(fmt, args...) (void *)0
+#else
+#define dbg_trace(fmt, args...) fprintf(stderr, fmt, ##args)
+#endif
+
 void ScriptObject::Invalidate()
 {
 }
@@ -14,7 +20,7 @@ bool ScriptObject::HasMethod(NPIdentifier name)
 bool ScriptObject::Invoke(NPIdentifier name, const NPVariant *args,
 		uint32_t argCount, NPVariant *result)
 {
-	printf("ScriptObject::Invoke: %p %s %d\n", this, (char *)name, argCount);
+	dbg_trace("ScriptObject::Invoke: %p %s %d\n", this, (char *)name, argCount);
 	return false;
 }
 
@@ -31,13 +37,13 @@ bool ScriptObject::HasProperty(NPIdentifier name)
 
 bool ScriptObject::GetProperty(NPIdentifier name, NPVariant *result)
 {
-	printf("ScriptObject::GetProperty:%p %s\n", this, (char *)name);
+	dbg_trace("ScriptObject::GetProperty:%p %s\n", this, (char *)name);
 	return false;
 }
 
 bool ScriptObject::SetProperty(NPIdentifier name, const NPVariant *value)
 {
-	printf("ScriptObject::SetProperty: %s\n", (char *)name);
+	dbg_trace("ScriptObject::SetProperty: %s\n", (char *)name);
 	return false;
 }
 

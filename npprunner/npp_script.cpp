@@ -7,6 +7,12 @@
 #include "npp_object.h"
 #include "npp_script.h"
 
+#ifndef ENAVLE_DEBUG
+#define dbg_trace(fmt, args...) (void *)0
+#else
+#define dbg_trace(fmt, args...) fprintf(stderr, fmt, ##args)
+#endif
+
 #define DECLARE_NPOBJECT_CLASS_WITH_BASE(_class, ctor)			\
 	static NPClass s##_class##_NPClass = {				\
 		NP_CLASS_STRUCT_VERSION_CTOR, 				\
@@ -75,7 +81,7 @@ class LocationObject: public ScriptObject
 
 bool LocationObject::Invoke(NPIdentifier name, const NPVariant *args, uint32_t argCount, NPVariant *result)
 {
-	printf("LocationObject::Invoke: %s\n", (char *)name);
+	dbg_trace("LocationObject::Invoke: %s\n", (char *)name);
 	if (name == __toString_id){
 		STRINGZ_TO_NPVARIANT(strdup("http://www.tudou.com/programs/view/nbeSbhYMOrg/"), *result);
 		return true;
@@ -120,7 +126,7 @@ WindowObject::~WindowObject()
 
 bool WindowObject::GetProperty(NPIdentifier name, NPVariant *result)
 {
-	printf("WindowObject::GetProperty: %s %p\n", (char *)name, mLocation);
+	//dbg_trace("WindowObject::GetProperty: %s %p\n", (char *)name, mLocation);
 	if (name == __location_id){
 		NPN_RetainObject(mLocation);
 		OBJECT_TO_NPVARIANT(mLocation, *result);
