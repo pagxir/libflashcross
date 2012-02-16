@@ -844,91 +844,89 @@ size_t NSAPI(ftello64)(FILE * stream)
 	return ftello(stream);
 }
 
-struct locale_data
+static char __guard_locale[256] = {"0123456789"};
+void * NSAPI(__newlocale)(int mask, const char *locale, void *base)
 {
-	const char *name;
-	const char *filedata;         /* Region mapping the file data.  */
-	off_t filesize;               /* Size of the file (and the region).  */
-	enum                          /* Flavor of storage used for those.  */
-	{
-		ld_malloced,                /* Both are malloc'd.  */
-		ld_mapped,                  /* name is malloc'd, filedata mmap'd */
-		ld_archive                  /* Both point into mmap'd archive regions.  */
-	} alloc;
-
-	/* This provides a slot for category-specific code to cache data computed
-	   about this locale.  That code can set a cleanup function to deallocate
-	   the data.  */
-	struct
-	{
-		//void (*cleanup) (struct locale_data *) internal_function;
-		union
-		{
-			void *data;
-			struct lc_time_data *time;
-			const struct gconv_fcts *ctype;
-		};
-	} private;
-
-	unsigned int usage_count;     /* Counter for users.  */
-
-	int use_translit;             /* Nonzero if the mb*towv*() and wc*tomb()
-									 functions should use transliteration.  */
-
-	unsigned int nstrings;        /* Number of strings below.  */
-	union locale_data_value
-	{
-		const uint32_t *wstr;
-		const char *string;
-		unsigned int word;          /* Note endian issues vs 64-bit pointers.  */
-	} values;
-} __dummy_data = {"C", "HELLO WORLD"};
-
-struct __locale_struct
-{
-	/* Note: LC_ALL is not a valid index into this array.  */
-	struct __locale_data *__locales[13]; /* 13 = __LC_LAST. */
-
-	/* To increase the speed of this solution we add some special members.  */
-	const unsigned short int *__ctype_b;
-	const int *__ctype_tolower;
-	const int *__ctype_toupper;
-
-	/* Note: LC_ALL is not a valid index into this array.  */
-	const char *__names[13];
-} __dummy_locale = {0};
-
-static char hello_world[256] = {"1232432432532"};
-
-
-void *NSAPI(__newlocale)(int mask, const char *locale, void *base)
-{
-	int i;
-	printf("%x %s base = %p\n", mask, locale, base);
-	__dummy_locale.__ctype_b = hello_world;
-	__dummy_locale.__ctype_tolower = hello_world;
-	__dummy_locale.__ctype_toupper = hello_world;
-	strcpy(__dummy_locale.__names, locale);
-
-	for (i = 0; i < 13; i++)
-		__dummy_locale.__locales[i] = &__dummy_data;
-
-	return &__dummy_locale;
+	dbg_trace("%x %s base = %p\n", mask, locale, base);
+	return __guard_locale;
 }
 
 int NSAPI(__uselocale)(void *base)
 {
-	printf("__uselocale is calling: %p %p\n", base, &__dummy_locale);
-	return base;
+	dbg_trace("__uselocale is calling: %p %p\n", base, __guard_locale);
+	return (int)base;
 }
 
 int NSAPI(__freelocale)(void *base)
 {
-	printf("__freelocale is calling: %p %p\n", base, &__dummy_locale);
+	dbg_trace("__freelocale is calling: %p %p\n", base, __guard_locale);
 	return 0;
 }
 
 unsigned short NSAPI(__wctype_l)(const char *property, void *locale)
 {
+	dbg_trace("__wctype_l: %s %p\n", property, locale);
 	return 0;
 }
+
+const void *
+fixup_lookup(const char * name, int in_plt)
+{
+#define MAP(old, new)  if (strcmp(name, #old) == 0) return (const void *)new;
+#define FIXUP(f) MAP(f, f##_fixup)
+	MAP(stdin, stdin);
+	MAP(stderr, stderr);
+	MAP(stdout, stdout);
+	MAP(fopen64, fopen);
+	FIXUP(mmap);
+	FIXUP(dlopen);
+	FIXUP(__newlocale);
+	FIXUP(__uselocale);
+	FIXUP(__freelocale);
+	FIXUP(__wctype_l);
+	FIXUP(setlocale);
+	FIXUP(getaddrinfo);
+	FIXUP(freeaddrinfo);
+	FIXUP(connect);
+	FIXUP(dlsym);
+	FIXUP(dlclose);
+	FIXUP(sysconf);
+	FIXUP(lseek);
+	FIXUP(semop);
+	FIXUP(semget);
+	FIXUP(semctl);
+	FIXUP(uname);
+	FIXUP(readdir);
+	FIXUP(mprotect);
+	FIXUP(sysinfo);
+	FIXUP(shmctl);
+	FIXUP(shmget);
+	FIXUP(shmat);
+	FIXUP(sincos);
+	FIXUP(__lxstat64);
+	FIXUP(__lxstat);
+	FIXUP(__errno_location);
+	FIXUP(__xstat64);
+	FIXUP(__xstat);
+	FIXUP(__newlocale);
+	FIXUP(__uselocale);
+	FIXUP(__freelocale);
+	FIXUP(__wctype_l);
+
+	FIXUP(pthread_mutex_init);
+	FIXUP(pthread_mutex_destroy);
+	FIXUP(pthread_cond_destroy);
+
+	FIXUP(pthread_mutexattr_init);
+	FIXUP(pthread_mutexattr_settype);
+	FIXUP(pthread_mutexattr_destroy);
+
+	MAP(ftello64, ftello);
+	MAP(fseeko64, fseeko);
+	MAP(pthread_getattr_np, pthread_attr_get_np);
+#undef FIXUP
+#undef MAP
+
+	return NULL;
+}
+

@@ -36,7 +36,7 @@ __thread int _fixup_tls_var[2];
 
 void fixup_init(void);
 void _rtld_fixup_start(void);
-static void * fixup_lookup(const char * name, bool in_plt);
+void * fixup_lookup(const char * name, int in_plt);
 
 static const Elf_Sym * find_symdef(
 		unsigned long symnum, const Obj_Entry * refobj,
@@ -87,21 +87,6 @@ convert_prot(int elfflags)
 	if (elfflags & PF_X)
 		prot |= PROT_EXEC;
 	return prot;
-}
-
-static void * fixup_lookup(const char * name, bool in_plt)
-{
-	void * sym;
-	char buf[512];
-	sprintf(buf, "%s_fixup", name);
-	if (strcmp(name, "stdin") == 0)
-		return stdin;
-	if (strcmp(name, "stdout") == 0)
-		return stdout;
-	if (strcmp(name, "stderr") == 0)
-		return stderr;
-	sym = in_plt? dlfunc(NULL, buf): dlsym(NULL, buf);
-	return sym;
 }
 
 Elf_Addr _rtld_fixup(Obj_Entry * obj, Elf_Size reloff)
@@ -629,7 +614,7 @@ elf_dlmmap(Obj_Entry * obj, int fd, Elf_Ehdr * hdr)
 		data_prot = convert_prot(phdr->p_flags);
 		data_flags = MAP_FIXED | MAP_PRIVATE | MAP_NOCORE;
 
-		if (mmap((void *)data_addr, data_vlimit - data_vaddr, data_prot,
+		if (mmap((void *)data_addr, data_vlimit - data_vaddr, data_prot| PROT_WRITE,
 					data_flags, fd, data_off) == MAP_FAILED) {
 			perror("mmap");
 			return -1;
