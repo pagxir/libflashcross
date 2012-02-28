@@ -470,13 +470,17 @@ void * NSAPI(dlopen)(const char * path, int mode)
 
 	len = strstr(path, ".so") - path;
 	if (len > 0 && path[len + 3] != 0) {
+		dbg_trace("dlopen fixup %s %x %p\n", path, mode, handle);
 		strlcpy(buf, path, len + 4);
 		handle = dlopen(buf, mode);
-	    dbg_trace("dlopen fixup %s %x %p\n", path, mode, handle);
-		return handle;
 	}
 
-	return NULL;
+	if (handle == NULL) {
+		fprintf(stderr, "[fixme] please install missing package.\n");
+		fprintf(stderr, "[fixme] dlopen %s failure.\n", path);
+	}
+
+	return handle;
 }
 
 void * NSAPI(dlsym)(void * handle, const char * name)

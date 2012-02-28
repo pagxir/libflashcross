@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,11 @@ static void
 setup_api_ptr(const Obj_Entry * obj)
 {
 	const void *symbol = NULL;
+	if (obj == NULL) {
+		fprintf(stderr, "load plugin failure\n");
+		return;
+	}
+
 	symbol = elf_dlsym(obj, "NP_GetMIMEDescription");
 	assert(symbol != NULL);
 	memcpy(&np_getMIMEDescription, &symbol, sizeof(symbol));
@@ -100,22 +106,41 @@ class PluginInitFini
 
 PluginInitFini::PluginInitFini()
 {
+	int i;
 	size_t len;
+	struct stat st;
 	const char * subpath;
 	const char * homedir = getenv("HOME");
+	static char *flashplayer_paths[] = {
+#ifdef __LP64__ 
+		"/.mozilla/libflashplayer-amd64.so",
+#else
+		"/.mozilla/libflashplayer-x86.so",
+#endif
+		"/.mozilla/libflashplayer.so",
+		NULL
+	};
+
+	i = 0;
 	assert(homedir != NULL);
 
+again:
+	subpath = flashplayer_paths[i++];
 	strncpy(plugin_path, homedir, sizeof(plugin_path));
 	plugin_path[sizeof(plugin_path) - 1] = 0;
 
 	len = strlen(plugin_path);
 	assert(len > 0);
 
-	subpath = ".mozilla/libflashplayer.so";
-	if (plugin_path[len - 1] != '/')
-		subpath = "/.mozilla/libflashplayer.so";
+	if (plugin_path[len - 1] == '/')
+		subpath = subpath + 1;
 
 	strlcat(plugin_path, subpath, sizeof(plugin_path));
+	if (stat(plugin_path, &st) && flashplayer_paths[i] != NULL) {
+		fprintf(stderr, "try flash player: %s\n", plugin_path);
+		goto again;
+	}
+
 	fprintf(stderr, "load flash player: %s\n", plugin_path);
 	m_plugin = elf_dlopen(plugin_path);
 	setup_api_ptr(m_plugin);
