@@ -13,6 +13,7 @@ static const char embed_attrib[] = {
 static const char * embed_attrib_p = embed_attrib;
 static char embed_attrib_buf[65536];
 
+extern "C" void update_gdk_image_ref(void *gdk_image_new);
 
 void callback( GtkWidget *widget,
 		gpointer   data )
@@ -24,8 +25,10 @@ void callback( GtkWidget *widget,
 		case 0:
 			plugin_Setup();
 			plugin = (GtkWidget *)data;
+			//update_gdk_image_ref((void*)gdk_image_new);
 			xid = GDK_WINDOW_XID(plugin->window);
 			plugin_New(xid, embed_attrib_p, &npp);
+			gtk_widget_hide(widget);
 			playing = 1;
 			break;
 
@@ -69,7 +72,7 @@ int main(int argc, char *argv[])
 	g_signal_connect(G_OBJECT(window), "delete_event",
 			G_CALLBACK(delete_event), NULL);
 	gtk_container_set_border_width(GTK_CONTAINER(window), 2);
-	gtk_window_resize(GTK_WINDOW(window), 610, 510);
+	gtk_window_resize(GTK_WINDOW(window), 820, 620);
 	gtk_widget_show(window);
 
 	box = gtk_vbox_new(FALSE, 0);

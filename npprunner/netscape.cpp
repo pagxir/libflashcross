@@ -475,10 +475,10 @@ int plugin_New(int xid, const char *url, NPP npp)
 	dbg_trace("plugin_newp %d\n", error);
 	__plugin.refcnt++;
 
-	rect.top = 4;
-	rect.left = 4;
-	rect.right = 600;
-	rect.bottom = 480;
+	rect.top = 0;
+	rect.left = 0;
+	rect.right = 800;
+	rect.bottom = 600;
 
 	object->window.window = (void *)xid;
 	object->window.x = 0;

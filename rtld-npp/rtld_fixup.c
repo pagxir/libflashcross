@@ -422,7 +422,7 @@ int NSAPI(uname)(struct utsname_gnu * name)
 	XX(nodename, "myhost");
 	XX(release, "2.6.33-ARCH");
 	XX(version, "#1 SMP PREEMPT Thu May 13 12:06:25 CEST 2010");
-	XX(machine, "i386");
+	XX(machine, "x86_64");
 #undef XX
 	//name->domainname[0] = 0;
 	return error;
@@ -1017,6 +1017,28 @@ unsigned short NSAPI(__wctype_l)(const char *property, void *locale)
 	return 0;
 }
 
+void * gdk_image_new(int type, void *visual, int width, int height);
+void * (*gdk_image_new_ref)(int type, void *visual, int width, int height) = NULL;
+
+void update_gdk_image_ref(void *func)
+{
+	printf("old fun : %p, new func %p\n",
+		gdk_image_new, func);
+	if (func == NULL)
+		func = gdk_image_new;
+	if (gdk_image_new_ref == NULL)
+		gdk_image_new_ref = func;
+	return;
+}
+
+void * NSAPI(gdk_image_new)(int type, void *visual, int width, int height)
+{
+	update_gdk_image_ref(NULL);
+	if (width * height < 672 * 378 / 4)
+		return gdk_image_new(type, visual, width, height);
+	return gdk_image_new(type, visual, width, height);
+}
+
 const void *
 fixup_lookup(const char * name, int in_plt)
 {
@@ -1028,6 +1050,7 @@ fixup_lookup(const char * name, int in_plt)
 	MAP(fopen64, fopen);
 
 	FIXUP(mmap);
+	FIXUP(gdk_image_new);
 	FIXUP(__newlocale);
 	FIXUP(__uselocale);
 	FIXUP(__freelocale);

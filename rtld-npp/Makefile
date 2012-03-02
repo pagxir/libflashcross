@@ -1,8 +1,8 @@
 PKGNAME = gtk+-2.0
-CFLAGS  = -g -fPIC -Iinclude -O3
+CFLAGS  += -g -fPIC -Iinclude -O3 -DENABLE_DEBUG
 CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)`
 
-LDLIBS = `pkg-config --libs nss`
+LDLIBS = `pkg-config --libs nss gtk+-2.0`
 LDLIBS += -lstdc++ -lssl -lm -lXt
 RTLD_NAME = rtld
 PLUGIN_NAME = flashcross
