@@ -11,7 +11,6 @@
 #include <netdb.h>
 #include <signal.h>
 #include <pthread.h>
-#include <pthread_np.h>
 
 #include <sys/ipc.h>
 #include <sys/shm.h>
@@ -21,9 +20,7 @@
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/socket.h>
-#include <sys/proc.h>
 #include <sys/param.h>
-#include <sys/signalvar.h>
 
 #include <poll.h>
 #include <fcntl.h>
@@ -40,6 +37,14 @@
 
 #define WARN(exp, msg) if (exp); else dbg_trace("%s\n", msg)
 
+#define dlfunc dlsym
+#define strlcpy strncpy
+
+void fixup_init(void)
+{
+}
+
+#if 0
 typedef int dl_callback(
 		struct dl_phdr_info * info, size_t size, void * data);
 
@@ -577,6 +582,7 @@ int NSAPI(sysinfo)(struct sysinfo_gnu * info)
 	info->totalhigh = 611655680;
 	return 0;
 }
+#endif
 
 void *FPX_Init(void *ptr);
 static int dummy_curllib = 0;
@@ -662,6 +668,7 @@ int NSAPI(dlclose)(void * handle)
 	return dlclose(handle);
 }
 
+#if 0
 long NSAPI(sysconf)(int name)
 {
 	if (name == 30)
@@ -1016,12 +1023,14 @@ unsigned short NSAPI(__wctype_l)(const char *property, void *locale)
 	dbg_trace("__wctype_l: %s %p\n", property, locale);
 	return 0;
 }
+#endif
 
 const void *
 fixup_lookup(const char * name, int in_plt)
 {
 #define MAP(old, new)  if (strcmp(name, #old) == 0) return (const void *)new;
 #define FIXUP(f) MAP(f, f##_fixup)
+#if 0
 	MAP(stdin, stdin);
 	MAP(stderr, stderr);
 	MAP(stdout, stdout);
@@ -1079,6 +1088,7 @@ fixup_lookup(const char * name, int in_plt)
 	MAP(ftello64, ftello);
 	MAP(fseeko64, fseeko);
 	MAP(pthread_getattr_np, pthread_attr_get_np);
+#endif
 #undef FIXUP
 #undef MAP
 

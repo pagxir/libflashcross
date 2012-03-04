@@ -1,6 +1,7 @@
 PKGNAME = gtk+-2.0
 CFLAGS  = -g -fPIC -Iinclude -O3
 CXXFLAGS = $(CFLAGS) `pkg-config --cflags $(PKGNAME)`
+MACHINE_ARCH = amd64
 
 LDLIBS = `pkg-config --libs nss`
 LDLIBS += -lstdc++ -lssl -lm -lXt
@@ -12,9 +13,10 @@ all: $(RTLD_NAME) $(SONAME)
 	echo $(RTLD_NAME) $(SONAME)
 
 OBJ_RTLD = rtld.o rtld_start.o rtld_fixup.o \
-	linux.o flashsupport.o
+	flashsupport.o
 
 rtld_start.o: ${MACHINE_ARCH}/rtld_start.o
+	cp ${MACHINE_ARCH}/rtld_start.o .
 
 $(RTLD_NAME): $(OBJ_RTLD)
 	$(CC) $(LDFLAGS) -fPIC -o $(RTLD_NAME) $(OBJ_RTLD) $(LDLIBS)

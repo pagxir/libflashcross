@@ -13,6 +13,8 @@
 #include "rtld.h"
 #define MOZILLA_API extern "C"
 
+#define strlcat strncat
+
 static char plugin_path[512];
 static const Obj_Entry * m_plugin = 0;
 

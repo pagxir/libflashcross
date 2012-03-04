@@ -10,6 +10,8 @@
 #include <sys/mman.h>
 #include <sys/elf.h>
 
+#include <elf.h>
+
 #define VERBOSE 1
 
 #include "rtld.h"
@@ -18,6 +20,25 @@
 #define false 0
 #define true 1
 #define bool int
+
+#define Elf_Addr Elf64_Addr
+#define Elf_Sym  Elf64_Sym
+#define Elf_Ehdr Elf64_Ehdr
+#define Elf_Dyn  Elf64_Dyn
+#define Elf_Phdr Elf64_Phdr
+#define Elf_Off  Elf64_Off
+#define Elf_Rel  Elf64_Rel
+#define Elf_Rela Elf64_Rela
+#define Elf_Size Elf64_Off
+#define Elf_Hashelt Elf32_Off
+#define RTLD_DEFAULT 0
+#define MAP_NOCORE 0
+
+#define ELF_R_SYM ELF64_R_SYM
+#define ELF_R_TYPE ELF64_R_TYPE
+#define ELF_ST_TYPE ELF64_ST_TYPE
+#define ELF_ST_BIND ELF64_ST_BIND
+#define dlfunc dlsym
 
 #ifndef ENABLE_DEBUG
 #define dbg_trace(fmt, args...) (void *)0
