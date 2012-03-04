@@ -455,8 +455,20 @@ void * NSAPI(dlopen)(const char * path, int mode)
 	ssize_t len;
 	void *handle;
 	char *p, buf[1024];
+	static int glfix = 0;
 
 	dbg_trace("dlopen %s %x\n", path, mode);
+	if ((mode & 0x4) != 0) {
+		dbg_trace("bug fixed for mode operation.\n");
+		mode = (mode & ~0x04) | RTLD_NOLOAD;
+	}
+
+	if (strstr(path, "libGL.so") &&
+		(glfix == 0) && (mode & RTLD_NOLOAD)) {
+		dbg_trace("bug fixed for loading libGL.\n");
+		return (glfix++ == 0? NULL: NSAPI(dlopen)(path, mode));
+	}
+
 	if (strstr(path, "libflashsupport") != NULL) {
 		dummy_flashsupport++;
 		return &dummy_flashsupport;
