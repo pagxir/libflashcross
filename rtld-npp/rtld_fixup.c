@@ -25,6 +25,8 @@
 #include <sys/param.h>
 #include <sys/signalvar.h>
 
+#include <poll.h>
+#include <fcntl.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
@@ -204,39 +206,152 @@ struct sockaddr_in_gnu {
 	unsigned int   sin_addr;
 };
 
+static __thread int linux_errno = 0;
+static int save_linux_error(int error)
+{
+
+#define XX(bsdno, lnxno) \
+		if (error == bsdno) \
+			linux_errno = lnxno;
+	XX(EINPROGRESS, 115);
+	XX(EALREADY, 114);
+	XX(EISCONN, 106);
+	XX(EINVAL, 22);
+	XX(EAGAIN, 11);
+#undef XX
+
+	return error;
+}
+
 int NSAPI(connect)(int fd, const struct sockaddr * addr, size_t addrlen)
 {
+	int error;
 	struct sockaddr_in in_gnu;
 	struct sockaddr_in_gnu * compat;
 
-	if (addr == NULL || addrlen != 16); {
-		errno = EINVAL;
+	if (addr == NULL || addrlen != 16) {
+		save_linux_error(EINVAL);
 		return -1;
 	}
 
 	memcpy(&in_gnu, addr, sizeof(in_gnu));
-	dbg_trace("connect family %d, port %d,  addr %x\n",
-			in_gnu.sin_family, htons(in_gnu.sin_port), (in_gnu.sin_addr));
-
 	compat = (struct sockaddr_in_gnu *)addr;
-
 	if (in_gnu.sin_family != AF_INET &&
 			compat->sin_family == AF_INET) {
+		addr = &in_gnu;
+		addrlen = sizeof(in_gnu);
 		in_gnu.sin_family = compat->sin_family;
 		in_gnu.sin_port   = compat->sin_port;
 		in_gnu.sin_addr.s_addr = compat->sin_addr;
-		return connect(fd, (struct sockaddr *)&in_gnu, sizeof(in_gnu));
 	}
 
-	return connect(fd, addr, addrlen);
+	dbg_trace("connect %d family %d, port %d,  addr %x\n", fd,
+			in_gnu.sin_family, htons(in_gnu.sin_port), (in_gnu.sin_addr));
+	error = connect(fd, (struct sockaddr *)&in_gnu, sizeof(in_gnu));
+
+	if (error == -1) {
+		save_linux_error(errno);
+		dbg_trace("connect: %d\n", errno);
+	}
+
+	return error;
 }
 
-static inline void swap(void  ** a, void ** b)
+int NSAPI(recv)(int s, void * buf, size_t len, int flag)
+{
+	int error;
+
+	error = recv(s, buf, len, flag);
+	if (error == -1) {
+		save_linux_error(errno);
+		dbg_trace("recv: fd %d, err %d\n", s, errno);
+	}
+
+	return error;
+}
+
+int NSAPI(send)(int s, void * buf, size_t len, int flag)
+{
+	int error;
+
+	error = send(s, buf, len, flag);
+	if (error == -1) {
+		save_linux_error(errno);
+		dbg_trace("send: fd %d, err %d\n", s, errno);
+	}
+
+	return error;
+}
+
+int NSAPI(getsockopt)(int s, int level, int optname, void * optval,
+         socklen_t * optlen)
+{
+	int error;
+	int fbsd_level;
+	int fbsd_optname;
+
+	fbsd_level = (level == 1? SOL_SOCKET: level);
+	fbsd_optname = (optname == 4? SO_ERROR: optname);
+	error = getsockopt(s, fbsd_level, fbsd_optname, optval, optlen);
+
+	if ((error == 0) && optlen && *optlen == sizeof(int) &&
+		(fbsd_optname == SO_ERROR) && (fbsd_level == SOL_SOCKET)) {
+		int error = linux_errno;
+		save_linux_error(*(int *)optval);
+		*(int *)optval = linux_errno;
+		linux_errno = error;
+	}
+
+	return error;
+}
+
+int NSAPI(setsockopt)(int s, int level, int optname, const void *optval,
+         socklen_t optlen)
+{
+	int error;
+	int fbsd_level;
+	int fbsd_optname;
+
+	fbsd_level = (level == 1? SOL_SOCKET: level);
+	fbsd_optname = (optname == 4? SO_ERROR: optname);
+	return setsockopt(s, fbsd_level, fbsd_optname, optval, optlen);
+}
+
+int NSAPI(fcntl)(int fd, int cmd, unsigned long flags)
+{
+	int error;
+
+	if (cmd == F_SETFL && (flags & 0x800))
+		flags = (flags & ~0x800)| O_NONBLOCK;
+	error = fcntl(fd, cmd, flags);
+	if (cmd == F_GETFL && (flags & O_NONBLOCK))
+		flags = (flags & ~O_NONBLOCK)| 0x800;O_NONBLOCK;
+	return error;
+} 
+
+static inline void swap_memory(void  * a, void * b)
 {
 	void * tt;
-	tt = *a;
-	*a = *b;
-	*b = tt;
+	void ** ap = (void **)a;
+	void ** bp = (void **)b;
+
+	tt = *ap;
+	*ap = *bp;
+	*bp = tt;
+	
+	return;
+}
+
+static void convert_linux_address(struct sockaddr_in *addr)
+{
+	struct sockaddr_in_gnu *k, ai;
+
+	ai.sin_family = addr->sin_family;
+	ai.sin_port = addr->sin_port;
+	ai.sin_addr = addr->sin_addr.s_addr;
+
+	memcpy(addr, &ai, sizeof(ai));
+	return;
 }
 
 int NSAPI(getaddrinfo)(const char * hostname, const char * servname,
@@ -249,21 +364,27 @@ int NSAPI(getaddrinfo)(const char * hostname, const char * servname,
 	if (error != 0)
 		return error;
 
-	for (info = *res; info; info = info->ai_next)
-		swap((void **)&info->ai_canonname,
-				(void **)&info->ai_addr);
+	for (info = *res; info; info = info->ai_next) {
+		convert_linux_address(info->ai_addr);
+		swap_memory((void **)&info->ai_canonname, (void **)&info->ai_addr);
+	}
+
 	return error;
 }
 
 void NSAPI(freeaddrinfo)(struct addrinfo * ai)
 {
 	struct addrinfo * info;
-	if (ai == NULL)
+	if (ai == NULL) {
+		dbg_trace("freeaddrinfo: invalidate\n");
 		return;
+	}
 
-	for (info = ai; info; info = info->ai_next)
-		swap((void **)&info->ai_canonname,
-				(void **)&info->ai_addr);
+	for (info = ai; info; info = info->ai_next) {
+		swap_memory((void **)&info->ai_canonname, (void **)&info->ai_addr);
+		dbg_trace("freeaddrinfo: ai %p\n", ai);
+	}
+
 	freeaddrinfo(ai);
 }
 
@@ -745,7 +866,7 @@ int NSAPI(__lxstat)(int ver, const char * path, struct stat_gnu * stat_buf)
 
 int * NSAPI(__errno_location)(void)
 {
-	return &errno;
+	return &linux_errno;
 }
 
 void NSAPI(sincos)(double x, double *sin0, double *cos0)
@@ -894,8 +1015,8 @@ fixup_lookup(const char * name, int in_plt)
 	MAP(stderr, stderr);
 	MAP(stdout, stdout);
 	MAP(fopen64, fopen);
+
 	FIXUP(mmap);
-	FIXUP(dlopen);
 	FIXUP(__newlocale);
 	FIXUP(__uselocale);
 	FIXUP(__freelocale);
@@ -903,7 +1024,14 @@ fixup_lookup(const char * name, int in_plt)
 	FIXUP(setlocale);
 	FIXUP(getaddrinfo);
 	FIXUP(freeaddrinfo);
+
+	FIXUP(send);
+	FIXUP(fcntl);
 	FIXUP(connect);
+	FIXUP(getsockopt);
+	FIXUP(setsockopt);
+
+	FIXUP(dlopen);
 	FIXUP(dlsym);
 	FIXUP(dlclose);
 	FIXUP(sysconf);
