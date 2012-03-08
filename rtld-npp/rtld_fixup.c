@@ -212,7 +212,7 @@ static int save_linux_error(int error)
 
 #define XX(bsdno, lnxno) \
 		if (error == bsdno) \
-			linux_errno = lnxno;
+			return (linux_errno = lnxno);
 	XX(EINPROGRESS, 115);
 	XX(EALREADY, 114);
 	XX(EISCONN, 106);
@@ -237,12 +237,23 @@ int NSAPI(connect)(int fd, const struct sockaddr * addr, size_t addrlen)
 	memcpy(&in_gnu, addr, sizeof(in_gnu));
 	compat = (struct sockaddr_in_gnu *)addr;
 	if (in_gnu.sin_family != AF_INET &&
-			compat->sin_family == AF_INET) {
-		addr = &in_gnu;
-		addrlen = sizeof(in_gnu);
-		in_gnu.sin_family = compat->sin_family;
-		in_gnu.sin_port   = compat->sin_port;
-		in_gnu.sin_addr.s_addr = compat->sin_addr;
+			in_gnu.sin_family != AF_INET6) {
+		switch (compat->sin_family) {
+			case AF_INET:
+				addr = &in_gnu;
+				addrlen = sizeof(in_gnu);
+				in_gnu.sin_family = compat->sin_family;
+				in_gnu.sin_port   = compat->sin_port;
+				in_gnu.sin_addr.s_addr = compat->sin_addr;
+				break;
+
+			case AF_INET6:
+				addr = &in_gnu;
+				addrlen = sizeof(in_gnu);
+				in_gnu.sin_family = compat->sin_family;
+				dbg_trace("AF_INET6 is not supported\n");
+				break;
+		}
 	}
 
 	dbg_trace("connect %d family %d, port %d,  addr %x\n", fd,
@@ -366,7 +377,7 @@ int NSAPI(getaddrinfo)(const char * hostname, const char * servname,
 
 	for (info = *res; info; info = info->ai_next) {
 		convert_linux_address(info->ai_addr);
-		swap_memory((void **)&info->ai_canonname, (void **)&info->ai_addr);
+		swap_memory(&info->ai_canonname, &info->ai_addr);
 	}
 
 	return error;
@@ -381,7 +392,7 @@ void NSAPI(freeaddrinfo)(struct addrinfo * ai)
 	}
 
 	for (info = ai; info; info = info->ai_next) {
-		swap_memory((void **)&info->ai_canonname, (void **)&info->ai_addr);
+		swap_memory(&info->ai_canonname, &info->ai_addr);
 		dbg_trace("freeaddrinfo: ai %p\n", ai);
 	}
 
