@@ -111,7 +111,7 @@ PluginInitFini::PluginInitFini()
 	struct stat st;
 	const char * subpath;
 	const char * homedir = getenv("HOME");
-	static char *flashplayer_paths[] = {
+	static const char *flashplayer_paths[] = {
 #ifdef __LP64__ 
 		"/.mozilla/libflashplayer-amd64.so",
 #else
@@ -120,6 +120,14 @@ PluginInitFini::PluginInitFini()
 		"/.mozilla/libflashplayer.so",
 		NULL
 	};
+
+	subpath = getenv("LD_FLASHPLAYER_PATH");
+	if (subpath != NULL) {
+		fprintf(stderr, "load flash player: %s\n", subpath);
+		m_plugin = elf_dlopen(subpath);
+		setup_api_ptr(m_plugin);
+		return;
+	}
 
 	i = 0;
 	assert(homedir != NULL);
@@ -144,6 +152,7 @@ again:
 	fprintf(stderr, "load flash player: %s\n", plugin_path);
 	m_plugin = elf_dlopen(plugin_path);
 	setup_api_ptr(m_plugin);
+	return;
 }
 
 PluginInitFini::~PluginInitFini()
