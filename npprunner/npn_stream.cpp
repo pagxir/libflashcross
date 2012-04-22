@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <ctype.h>
 
 #include <map>
 #include <gdk/gdk.h>
@@ -209,7 +210,36 @@ static int read_chunk(struct chunkcb *chunkcbp, void *buf, size_t len)
 	return min;
 }
 
-	proto_stream::proto_stream(void)
+int proto_stream_wrapper::m_salt = 0;
+
+proto_stream_wrapper::proto_stream_wrapper(proto_stream *protop)
+	:m_protop(protop)
+{
+	int salt;
+	char path[1024];
+	protop->ref();
+	salt = m_salt++;
+	sprintf(path, "stream-%d.mp4", salt);
+	m_file = fopen(path, "wb");
+	return;
+}
+
+int proto_stream_wrapper::recv_data(void *buf, size_t len)
+{
+	int count = m_protop->recv_data(buf, len);
+	if (count > 0)
+		fwrite(buf, 1, count, m_file);
+	return count;
+}
+
+proto_stream_wrapper::~proto_stream_wrapper()
+{
+	m_protop->rel();
+	fclose(m_file);
+	return;
+}
+
+proto_stream::proto_stream(void)
 :m_ref(1),  m_flags(0)
 {
 	m_write.wt_callback = proto_write;
@@ -376,7 +406,6 @@ int proto_stream::get_error(void)
 
 int proto_stream::cantain_video(void)
 {
-	return 0;
 	return (m_flags & PF_VIDEO);
 }
 
@@ -653,14 +682,21 @@ int NPNetStream::OnRead(void)
 		m_stream.end = parse_content_length(m_protop->response());
 
 		if (m_protop->cantain_video()) {
+#if 0
+			proto_stream *protop = new proto_stream_wrapper(m_protop);
+			if (protop != NULL) {
+				m_protop->rel();
+				m_protop = protop;
+			}
 			int const limit = 256 * 1024 / 4;
 			if (m_stream.end < (size_t)limit) {
 				dbg_trace("turn of advise\n");
 				m_stream.end /= 2;
 			} else {
 				m_stream.end = limit;
-				//play_video(m_url, m_url0);
+				play_video(m_url, m_url0);
 			}
+#endif
 		}
 
 		parse_mime_type(m_protop->response(), mimetype, sizeof(mimetype));
@@ -697,10 +733,12 @@ int NPNetStream::OnRead(void)
 		}
 
 		m_offset += count;
+#if 0
 		if (m_protop->cantain_video() &&
-				m_offset > m_stream.end) {
+				m_offset > m_stream.end && m_stream.end > 0) {
 			break;
 		}
+#endif
 	}
 
 	return m_protop->block();

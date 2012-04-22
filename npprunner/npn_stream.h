@@ -28,13 +28,13 @@ struct chunkcb {
 class proto_stream
 {
 	public:
-		int block(void);
-		int connected(void);
-		int get_error(void);
-		int cantain_video(void);
+		virtual int block(void);
+		virtual int connected(void);
+		virtual int get_error(void);
+		virtual int cantain_video(void);
 
 	public:
-		int recv_data(void *buf, size_t len);
+		virtual int recv_data(void *buf, size_t len);
 		int connect(const sockaddr_in *inaddrp, size_t len);
 
 	public:
@@ -47,9 +47,9 @@ class proto_stream
 		void ref(void);
 
 	public:
-		int recv_wait(struct waitcb *waitp);
-		const char *response(void);
-		~proto_stream();
+		virtual int recv_wait(struct waitcb *waitp);
+		virtual const char *response(void);
+		virtual ~proto_stream();
 
 	private:
 		void on_read(void);
@@ -68,6 +68,29 @@ class proto_stream
 		struct waitcb m_read;
 		struct waitcb m_write;
 		socket_stream *m_stream;
+};
+
+class proto_stream_wrapper: public proto_stream
+{
+	public:
+		int block(void) { return m_protop->block(); }
+		int connected(void) { return m_protop->connected(); }
+		int cantain_video(void) { return 0; }
+		int get_error(void) { return m_protop->get_error(); }
+		int recv_data(void *buf, size_t len);
+
+	public:
+		const char *response(void) { return m_protop->response(); }
+		int recv_wait(struct waitcb *waitp) { return m_protop->recv_wait(waitp); }
+
+	public:
+		proto_stream_wrapper(proto_stream *proto);
+		~proto_stream_wrapper();
+
+	private:
+		FILE *m_file;
+		static int m_salt;
+		proto_stream *m_protop;
 };
 
 class NPNetStream
