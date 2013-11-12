@@ -3,7 +3,7 @@
 char *NPP_GetMIMEDescription(void)
 {
 	static char MIMEDescription[] = {
-		"application/aliedit::npaliedit"
+		"application/aliedit::Aliedit"
 	};
 	return MIMEDescription;
 }
@@ -101,7 +101,7 @@ NPError NPP_SetWindow (NPP instance, NPWindow *pNPWindow)
 	return rv;
 }
 
-static char __nameString[] = "npaliedit";
+static char __nameString[] = "Aliedit (www.alipay.com security control)";
 
 NPError NPP_GetValue(NPP instance, NPPVariable variable, void *value)
 {
@@ -118,7 +118,7 @@ NPError NPP_GetValue(NPP instance, NPPVariable variable, void *value)
 
 	switch (variable) {
 		case NPPVpluginNameString:
-			*((const char **)value) = "Alipay security control";
+			*((const char **)value) = "Aliedit";
 			break;
 
 		case NPPVpluginDescriptionString:
